@@ -56,6 +56,9 @@ class Cell {
     }
 };
 
+#undef main
+//if this becomes a problem, rename 'main' to 'WinMain' for windows version
+
 int main () {
     Player you(0, 0, 0);
     Cell singlecell;
@@ -99,7 +102,7 @@ int main () {
                 default: break;
             }
         }
-        you.movement((keys[1]-keys[0])*0.1, (keys[3]-keys[2])*0.1, 0);
+        you.movement((keys[1]-keys[0])*0.1, (keys[3]-keys[2])*0.1, (keys[5]-keys[4])*0.01);
         SDL_Delay(1);
     }
     return 0;
