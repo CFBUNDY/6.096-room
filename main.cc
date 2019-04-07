@@ -1,4 +1,5 @@
 #include <iostream>
+#include <math.h>
 #include <vector>
 #include <SDL2/SDL.h>
 using namespace std;
@@ -10,6 +11,14 @@ SDL_Renderer * ren = NULL;
 typedef struct _xy {
     float x;
     float y;
+    _xy(float x=0, float y=0)
+        : x(x), y(y){}
+    _xy operator+(const _xy& a) {
+        return _xy(x+a.x, y+a.y);
+    }
+    _xy operator-(const _xy& a) {
+        return _xy(x-a.x, y-a.y);
+    }
 } xy;
 
 typedef struct _camera {
@@ -18,41 +27,24 @@ typedef struct _camera {
 } camera;
 
 xy pointFrom (camera view, xy point) {
-    xy proj; //projected
-    proj.x = point.x - view.p.x;
-    proj.y = point.y - view.p.y;
+    xy proj = point - view.p;
     float tx = proj.x*cos(view.dir) - proj.y*sin(view.dir);
     proj.y = proj.x*sin(view.dir) + proj.y*cos(view.dir);
     proj.x = tx;
     return proj;
 } //returns where point appears from view
 
-class Player {
-    camera pos;
-    float movespeed = 0.1, turnspeed = 0.005;
-    public:
-    Player(float x, float y, float dir) {
-        pos.p.x = x;
-        pos.p.y = y;
-        pos.dir = dir;
-    }
-    camera getpos() {
-        return pos;
-    }
-    void movement(float frwd, float side, float turn) {
-        pos.dir += turn*turnspeed;
-        pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*movespeed;
-        pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*movespeed;
-    }
-};
+xy closestPointOnSegment (xy l1, xy l2, xy p) {
+    xy closest;
+
+    return closest;
+}
 
 class Cell {
     vector<xy> points;
     public:
     void addpoint(float x, float y){
-        xy n;
-        n.x = x;
-        n.y = y;
+        xy n(x, y);
         points.push_back(n);
     }
     void drawfrom(camera c){
@@ -71,12 +63,33 @@ class Cell {
     }
 };
 
+class Player {
+    camera pos;
+    float movespeed = 0.1, turnspeed = 0.005;
+    Cell currentCell;
+    public:
+    Player(float x, float y, float dir, Cell current) {
+        pos.p.x = x;
+        pos.p.y = y;
+        pos.dir = dir;
+        currentCell = current;
+    }
+    camera getpos() {
+        return pos;
+    }
+    void movement(float frwd, float side, float turn) {
+        pos.dir += turn*turnspeed;
+        pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*movespeed;
+        pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*movespeed;
+    }
+};
+
 #undef main
 //if this becomes a problem, rename 'main' to 'WinMain' for windows version
 
 int main () {
-    Player you(0, 0, 0);
     Cell singlecell;
+    Player you(0, 0, 0, singlecell);
     singlecell.addpoint(-60, -60);
     singlecell.addpoint(-80, 20);
     singlecell.addpoint(80, 40);
