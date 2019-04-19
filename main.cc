@@ -101,7 +101,7 @@ class Cell {
 
 class Player {
     camera pos;
-    float movespeed = 0.1, turnspeed = 0.005;
+    float movespeed = 0.1, turnspeed = 0.005, width = 4;
     Cell currentCell;
     public:
     Player(float x, float y, float dir, Cell current) {
@@ -123,11 +123,20 @@ class Player {
             line l = currentCell.getSegment(i);
             xy cl = closestPointOnSegment(l, pos.p);
             if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
-                SDL_SetRenderDrawColor(ren, 255, 0, 0, SDL_ALPHA_OPAQUE);
+                xy n = cl-pos.p;
+                float nl = pointDistance(cl, pos.p);
+                nl = (nl+width)/nl;
+                n.x = n.x*nl;
+                n.y = n.y*nl;
+                pos.p = pos.p+n;
+            } else if (pointDistance(cl, pos.p) < width) {
+                xy n = cl-pos.p;
+                float nl = pointDistance(cl, pos.p);
+                nl = width/nl;
+                n.x = n.x*nl;
+                n.y = n.y*nl;
+                pos.p = cl-n;
             }
-            cl = pointFrom(pos, cl);
-            SDL_RenderDrawLine(ren, (W/2), (H/2), (W/2)+cl.x, (H/2)-cl.y);
-            SDL_SetRenderDrawColor(ren, 255, 255, 255, SDL_ALPHA_OPAQUE);
         }
     }
 };
