@@ -77,25 +77,35 @@ xy closestPointOnSegment (line l, xy p) {
     }
 }
 
+typedef struct _portal {
+    int target;
+    float dx, dy, da;
+    _portal (int target, float dx, float dy, float da)
+    : target(target), dx(dx), dy(dy), da(da) {}
+} portal;
+
 class Cell {
     vector<xy> points;
-    vector<Cell *> portals;
+    vector<portal> portals;
     //points added in cockwise rotation
     public:
-    void addpoint(float x, float y, Cell * c = NULL){
+    void addpoint(float x, float y, int c = -1, float dx = 0, float dy = 0, float da = 0){
         xy n(x, y);
         points.push_back(n);
-        portals.push_back(c);
+        portal p(c, dx, dy, da);
+        portals.push_back(p);
     }
     int cellSize () {return points.size();}
     line getSegment (int i) {
         line l(points[i%points.size()], points[(i+1)%points.size()]);
         return l;
     }
-    Cell * getPortal (int i) {
+    portal getPortal (int i) {
         return portals[i%portals.size()];
     }
 };
+
+vector <Cell *> cMap;
 
 class Player {
     camera pos;
@@ -111,16 +121,16 @@ class Player {
     camera getpos() {
         return pos;
     }
-    void drawroom() {
+    void drawroom() { // move this out of player functions to use different cameras
         vector <Cell *> cellq;
         cellq.push_back(currentCell);
         for (int i = 0; i < cellq.size(); i++) {
             for (int j = 0; j < cellq[i]->cellSize(); j++) {
                 line l = cellq[i]->getSegment(j);
-                Cell * p = cellq[i]->getPortal(j);
+                portal p = cellq[i]->getPortal(j);
                 if (pointOrientation(l.p1, l.p2, pos.p) < 0) {
-                    if (p) {
-                        cellq.push_back(p);
+                    if (p.target != -1) {
+                        cellq.push_back(cMap[p.target]);
                     } else {
                         l.p1 = pointFrom(pos, l.p1);
                         l.p2 = pointFrom(pos, l.p2);
@@ -138,10 +148,13 @@ class Player {
         //collision
         for (int i = 0; i < currentCell->cellSize(); i++) {
             line l = currentCell->getSegment(i);
-            Cell * p = currentCell->getPortal(i);
-            if (p) {
+            portal p = currentCell->getPortal(i);
+            if (p.target != -1) { // check if changing current cell
                 if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
-                    currentCell = p;
+                    currentCell = cMap[p.target];
+                    pos.p.x += p.dx;
+                    pos.p.y += p.dy;
+                    pos.dir += p.da;
                     break;
                 }
             } else {
@@ -171,11 +184,13 @@ class Player {
 
 int main () {
     Cell singlecell, secondcell;
-    singlecell.addpoint(-60, -60, &secondcell);
+    cMap.push_back(&singlecell);
+    cMap.push_back(&secondcell);
+    singlecell.addpoint(-60, -60, 1);
     singlecell.addpoint(-80, 20);
     singlecell.addpoint(80, 40);
     singlecell.addpoint(20, -80);
-    secondcell.addpoint(-80, 20, &singlecell);
+    secondcell.addpoint(-80, 20, 0);
     secondcell.addpoint(-60, -60);
     secondcell.addpoint(-120, -100);
     secondcell.addpoint(-160, -20);
