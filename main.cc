@@ -79,32 +79,30 @@ xy closestPointOnSegment (line l, xy p) {
 
 class Cell {
     vector<xy> points;
+    vector<Cell *> portals;
+    //points added in cockwise rotation
     public:
-    void addpoint(float x, float y){
+    void addpoint(float x, float y, Cell * c = NULL){
         xy n(x, y);
         points.push_back(n);
+        portals.push_back(c);
     }
     int cellSize () {return points.size();}
     line getSegment (int i) {
         line l(points[i%points.size()], points[(i+1)%points.size()]);
         return l;
     }
-    void drawfrom(camera c){
-        for (int i = 0; i < cellSize(); i++) {
-            line l = getSegment(i);
-            l.p1 = pointFrom(c, l.p1);
-            l.p2 = pointFrom(c, l.p2);
-            l.draw();
-        }
+    Cell * getPortal (int i) {
+        return portals[i%portals.size()];
     }
 };
 
 class Player {
     camera pos;
     float movespeed = 0.1, turnspeed = 0.005, width = 4;
-    Cell currentCell;
+    Cell * currentCell;
     public:
-    Player(float x, float y, float dir, Cell current) {
+    Player(float x, float y, float dir, Cell * current) {
         pos.p.x = x;
         pos.p.y = y;
         pos.dir = dir;
@@ -113,29 +111,56 @@ class Player {
     camera getpos() {
         return pos;
     }
+    void drawroom() {
+        vector <Cell *> cellq;
+        cellq.push_back(currentCell);
+        for (int i = 0; i < cellq.size(); i++) {
+            for (int j = 0; j < cellq[i]->cellSize(); j++) {
+                line l = cellq[i]->getSegment(j);
+                Cell * p = cellq[i]->getPortal(j);
+                if (pointOrientation(l.p1, l.p2, pos.p) < 0) {
+                    if (p) {
+                        cellq.push_back(p);
+                    } else {
+                        l.p1 = pointFrom(pos, l.p1);
+                        l.p2 = pointFrom(pos, l.p2);
+                        l.draw();
+                    }
+                }
+            }
+        }
+    }
     void movement(float frwd, float side, float turn) {
         //change position
         pos.dir += turn*turnspeed;
         pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*movespeed;
         pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*movespeed;
         //collision
-        for (int i = 0; i < currentCell.cellSize(); i++) {
-            line l = currentCell.getSegment(i);
-            xy cl = closestPointOnSegment(l, pos.p);
-            if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
-                xy n = cl-pos.p;
-                float nl = pointDistance(cl, pos.p);
-                nl = (nl+width)/nl;
-                n.x = n.x*nl;
-                n.y = n.y*nl;
-                pos.p = pos.p+n;
-            } else if (pointDistance(cl, pos.p) < width) {
-                xy n = cl-pos.p;
-                float nl = pointDistance(cl, pos.p);
-                nl = width/nl;
-                n.x = n.x*nl;
-                n.y = n.y*nl;
-                pos.p = cl-n;
+        for (int i = 0; i < currentCell->cellSize(); i++) {
+            line l = currentCell->getSegment(i);
+            Cell * p = currentCell->getPortal(i);
+            if (p) {
+                if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
+                    currentCell = p;
+                    break;
+                }
+            } else {
+                xy cl = closestPointOnSegment(l, pos.p);
+                if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
+                    xy n = cl-pos.p;
+                    float nl = pointDistance(cl, pos.p);
+                    nl = (nl+width)/nl;
+                    n.x = n.x*nl;
+                    n.y = n.y*nl;
+                    pos.p = pos.p+n;
+                } else if (pointDistance(cl, pos.p) < width) {
+                    xy n = cl-pos.p;
+                    float nl = pointDistance(cl, pos.p);
+                    nl = width/nl;
+                    n.x = n.x*nl;
+                    n.y = n.y*nl;
+                    pos.p = cl-n;
+                }
             }
         }
     }
@@ -145,12 +170,16 @@ class Player {
 //if this becomes a problem, rename 'main' to 'WinMain' for windows version
 
 int main () {
-    Cell singlecell;
-    singlecell.addpoint(-60, -60);
+    Cell singlecell, secondcell;
+    singlecell.addpoint(-60, -60, &secondcell);
     singlecell.addpoint(-80, 20);
     singlecell.addpoint(80, 40);
     singlecell.addpoint(20, -80);
-    Player you(0, 0, 0, singlecell);
+    secondcell.addpoint(-80, 20, &singlecell);
+    secondcell.addpoint(-60, -60);
+    secondcell.addpoint(-120, -100);
+    secondcell.addpoint(-160, -20);
+    Player you(0, 0, 0, &singlecell);
     bool keys[6] = {0,0,0,0,0,0};
 
     //init
@@ -163,9 +192,9 @@ int main () {
         SDL_RenderClear(ren);
 
         SDL_SetRenderDrawColor(ren, 255, 255, 255, SDL_ALPHA_OPAQUE);
-        SDL_RenderDrawLine(ren, (W/2)+4, (H/2)-4, (W/2)-4, (H/2)+4);
-        SDL_RenderDrawLine(ren, (W/2)-4, (H/2)-4, (W/2)+4, (H/2)+4);
-        singlecell.drawfrom(you.getpos());
+        SDL_RenderDrawLine(ren, (W/2)+4, (H/2), (W/2)-4, (H/2));
+        SDL_RenderDrawLine(ren, (W/2), (H/2)-4, (W/2), (H/2)+4);
+        you.drawroom();
 
         //SDL_RenderPresent(ren);
 
