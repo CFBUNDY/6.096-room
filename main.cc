@@ -87,7 +87,8 @@ typedef struct _portal {
 class Cell {
     vector<xy> points;
     vector<portal> portals;
-    //points added in cockwise rotation
+    //points added in clockwise rotation
+    //if you speak to me about the typo i will kill you
     public:
     void addpoint(float x, float y, int c = -1, float dx = 0, float dy = 0, float da = 0){
         xy n(x, y);
@@ -105,32 +106,32 @@ class Cell {
     }
 };
 
-vector <Cell *> cMap;
+vector <Cell> cMap;
 
 class Player {
     camera pos;
     float movespeed = 0.1, turnspeed = 0.005, width = 4;
-    Cell * currentCell;
+    int curCell;
     public:
-    Player(float x, float y, float dir, Cell * current) {
+    Player(float x = 0, float y = 0, float dir = 0, int current = 0) {
         pos.p.x = x;
         pos.p.y = y;
         pos.dir = dir;
-        currentCell = current;
+        curCell = current;
     }
     camera getpos() {
         return pos;
     }
     void drawroom() { // move this out of player functions to use different cameras
         vector <Cell *> cellq;
-        cellq.push_back(currentCell);
+        cellq.push_back(&cMap[curCell]);
         for (int i = 0; i < cellq.size(); i++) {
             for (int j = 0; j < cellq[i]->cellSize(); j++) {
                 line l = cellq[i]->getSegment(j);
                 portal p = cellq[i]->getPortal(j);
                 if (pointOrientation(l.p1, l.p2, pos.p) < 0) {
                     if (p.target != -1) {
-                        cellq.push_back(cMap[p.target]);
+                        cellq.push_back(&cMap[p.target]);
                     } else {
                         l.p1 = pointFrom(pos, l.p1);
                         l.p2 = pointFrom(pos, l.p2);
@@ -146,12 +147,12 @@ class Player {
         pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*movespeed;
         pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*movespeed;
         //collision
-        for (int i = 0; i < currentCell->cellSize(); i++) {
-            line l = currentCell->getSegment(i);
-            portal p = currentCell->getPortal(i);
+        for (int i = 0; i < cMap[curCell].cellSize(); i++) {
+            line l = cMap[curCell].getSegment(i);
+            portal p = cMap[curCell].getPortal(i);
             if (p.target != -1) { // check if changing current cell
                 if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
-                    currentCell = cMap[p.target];
+                    curCell = p.target;
                     pos.p.x += p.dx;
                     pos.p.y += p.dy;
                     pos.dir += p.da;
@@ -184,8 +185,6 @@ class Player {
 
 int main () {
     Cell singlecell, secondcell;
-    cMap.push_back(&singlecell);
-    cMap.push_back(&secondcell);
     singlecell.addpoint(-60, -60, 1);
     singlecell.addpoint(-80, 20);
     singlecell.addpoint(80, 40);
@@ -194,7 +193,9 @@ int main () {
     secondcell.addpoint(-60, -60);
     secondcell.addpoint(-120, -100);
     secondcell.addpoint(-160, -20);
-    Player you(0, 0, 0, &singlecell);
+    cMap.push_back(singlecell);
+    cMap.push_back(secondcell);
+    Player you;
     bool keys[6] = {0,0,0,0,0,0};
 
     //init
@@ -220,16 +221,16 @@ int main () {
                 case SDL_KEYUP:
                 case SDL_KEYDOWN:
                     switch (e.key.keysym.sym) {
+                        case SDLK_RETURN:
+                        case SDLK_ESCAPE: quit = (e.type == SDL_KEYDOWN); break;
                         case SDLK_w: keys[0] = (e.type == SDL_KEYDOWN); break;
                         case SDLK_s: keys[1] = (e.type == SDL_KEYDOWN); break;
                         case SDLK_a: keys[2] = (e.type == SDL_KEYDOWN); break;
                         case SDLK_d: keys[3] = (e.type == SDL_KEYDOWN); break;
                         case SDLK_q: keys[4] = (e.type == SDL_KEYDOWN); break;
                         case SDLK_e: keys[5] = (e.type == SDL_KEYDOWN); break;
-                    }
-                    quit = (e.key.keysym.sym == SDLK_RETURN);
-                    break;
-                default: break;
+                    }; break;
+                default: quit = (e.type == SDL_QUIT); break;
             }
         }
         you.movement(keys[0]-keys[1], keys[3]-keys[2], keys[5]-keys[4]);
