@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <math.h>
 #include <vector>
 #include <SDL2/SDL.h>
@@ -85,28 +86,41 @@ typedef struct _portal {
 } portal;
 
 class Cell {
-    vector<xy> points;
+    vector<int> points;
     vector<portal> portals;
     //points added in clockwise rotation
     //if you speak to me about the typo i will kill you
     public:
-    void addpoint(float x, float y, int c = -1, float dx = 0, float dy = 0, float da = 0){
-        xy n(x, y);
-        points.push_back(n);
+    void addpoint(int mappoint, int c = -1, float dx = 0, float dy = 0, float da = 0){
+        points.push_back(mappoint);
         portal p(c, dx, dy, da);
         portals.push_back(p);
     }
     int cellSize () {return points.size();}
-    line getSegment (int i) {
-        line l(points[i%points.size()], points[(i+1)%points.size()]);
-        return l;
-    }
+    line getSegment (int i);
     portal getPortal (int i) {
         return portals[i%portals.size()];
     }
 };
 
-vector <Cell> cMap;
+//vector <Cell> cMap;
+struct _Map {
+    vector <xy> points;
+    vector <Cell> c;
+    void addPoint(float x, float y) {
+        xy n(x, y);
+        points.push_back(n);
+    }
+    xy getPoint(unsigned int i) {
+        if (i < points.size()) return points[i];
+        xy n(0, 0); return n;
+    }
+} Map;
+
+line Cell::getSegment (int i) {
+    line l(Map.getPoint(points[i%points.size()]), Map.getPoint(points[(i+1)%points.size()]));
+    return l;
+}
 
 class Player {
     camera pos;
@@ -122,24 +136,8 @@ class Player {
     camera getpos() {
         return pos;
     }
-    void drawroom() { // move this out of player functions to use different cameras
-        vector <Cell *> cellq;
-        cellq.push_back(&cMap[curCell]);
-        for (int i = 0; i < cellq.size(); i++) {
-            for (int j = 0; j < cellq[i]->cellSize(); j++) {
-                line l = cellq[i]->getSegment(j);
-                portal p = cellq[i]->getPortal(j);
-                if (pointOrientation(l.p1, l.p2, pos.p) < 0) {
-                    if (p.target != -1) {
-                        cellq.push_back(&cMap[p.target]);
-                    } else {
-                        l.p1 = pointFrom(pos, l.p1);
-                        l.p2 = pointFrom(pos, l.p2);
-                        l.draw();
-                    }
-                }
-            }
-        }
+    int getcell() {
+        return curCell;
     }
     void movement(float frwd, float side, float turn) {
         //change position
@@ -147,9 +145,9 @@ class Player {
         pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*movespeed;
         pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*movespeed;
         //collision
-        for (int i = 0; i < cMap[curCell].cellSize(); i++) {
-            line l = cMap[curCell].getSegment(i);
-            portal p = cMap[curCell].getPortal(i);
+        for (int i = 0; i < Map.c[curCell].cellSize(); i++) {
+            line l = Map.c[curCell].getSegment(i);
+            portal p = Map.c[curCell].getPortal(i);
             if (p.target != -1) { // check if changing current cell
                 if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
                     curCell = p.target;
@@ -180,23 +178,48 @@ class Player {
     }
 };
 
+void drawroom(camera c, int cel) { // move this out of player functions to use different cameras
+    for (int j = 0; j < Map.c[cel].cellSize(); j++) {
+        line l = Map.c[cel].getSegment(j);
+        portal p = Map.c[cel].getPortal(j);
+        if (pointOrientation(l.p1, l.p2, c.p) < 0) {
+            if (p.target != -1) {
+                drawroom(c, p.target);
+            } else {
+                l.p1 = pointFrom(c, l.p1);
+                l.p2 = pointFrom(c, l.p2);
+                l.draw();
+            }
+        }
+    }
+}
+
 #undef main
 //if this becomes a problem, rename 'main' to 'WinMain' for windows version
 
 int main () {
-    Cell singlecell, secondcell;
-    singlecell.addpoint(-60, -60, 1);
-    singlecell.addpoint(-80, 20);
-    singlecell.addpoint(80, 40);
-    singlecell.addpoint(20, -80);
-    secondcell.addpoint(-80, 20, 0);
-    secondcell.addpoint(-60, -60);
-    secondcell.addpoint(-120, -100);
-    secondcell.addpoint(-160, -20);
-    cMap.push_back(singlecell);
-    cMap.push_back(secondcell);
+    Map.addPoint(-60, -60);
+    Map.addPoint(-80, 20);
+    Map.addPoint(80, 40);
+    Map.addPoint(20, -80);
+    Map.addPoint(-120, -100);
+    Map.addPoint(-160, -20);
+    Cell singlecell;//, secondcell;
+    Cell * secondcell = new Cell;
+    singlecell.addpoint(0, 1);
+    singlecell.addpoint(1);
+    singlecell.addpoint(2);
+    singlecell.addpoint(3);
+    secondcell->addpoint(1, 0);
+    secondcell->addpoint(0);
+    secondcell->addpoint(4);
+    secondcell->addpoint(5);
+    Map.c.push_back(singlecell);
+    Map.c.push_back(*secondcell);
+    delete secondcell;
     Player you;
     bool keys[6] = {0,0,0,0,0,0};
+    bool editmode = false;
 
     //init
     SDL_Init(SDL_INIT_VIDEO);
@@ -210,7 +233,7 @@ int main () {
         SDL_SetRenderDrawColor(ren, 255, 255, 255, SDL_ALPHA_OPAQUE);
         SDL_RenderDrawLine(ren, (W/2)+4, (H/2), (W/2)-4, (H/2));
         SDL_RenderDrawLine(ren, (W/2), (H/2)-4, (W/2), (H/2)+4);
-        you.drawroom();
+        drawroom(you.getpos(), you.getcell());
 
         //SDL_RenderPresent(ren);
 
@@ -221,6 +244,7 @@ int main () {
                 case SDL_KEYUP:
                 case SDL_KEYDOWN:
                     switch (e.key.keysym.sym) {
+                        case SDLK_BACKSPACE: if (e.type == SDL_KEYDOWN) editmode = !editmode; break;
                         case SDLK_RETURN:
                         case SDLK_ESCAPE: quit = (e.type == SDL_KEYDOWN); break;
                         case SDLK_w: keys[0] = (e.type == SDL_KEYDOWN); break;
@@ -233,7 +257,11 @@ int main () {
                 default: quit = (e.type == SDL_QUIT); break;
             }
         }
-        you.movement(keys[0]-keys[1], keys[3]-keys[2], keys[5]-keys[4]);
+        if (editmode) {
+
+        } else {
+            you.movement(keys[0]-keys[1], keys[3]-keys[2], keys[5]-keys[4]);
+        }
         SDL_RenderPresent(ren);
         SDL_Delay(1);
     }
