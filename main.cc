@@ -89,7 +89,6 @@ class Cell {
     vector<int> points;
     vector<portal> portals;
     //points added in clockwise rotation
-    //if you speak to me about the typo i will kill you
     public:
     void addpoint(int mappoint, int c = -1, float dx = 0, float dy = 0, float da = 0){
         points.push_back(mappoint);
@@ -231,9 +230,25 @@ int main () {
         SDL_RenderClear(ren);
 
         SDL_SetRenderDrawColor(ren, 255, 255, 255, SDL_ALPHA_OPAQUE);
-        SDL_RenderDrawLine(ren, (W/2)+4, (H/2), (W/2)-4, (H/2));
-        SDL_RenderDrawLine(ren, (W/2), (H/2)-4, (W/2), (H/2)+4);
-        drawroom(you.getpos(), you.getcell());
+        if (editmode) {
+            for (int i = 0; i < Map.points.size(); i++) {
+                xy p = Map.getPoint(i);
+                SDL_RenderDrawLine(ren, (W/2)+p.x+2, (H/2)-p.y+2, (W/2)+p.x-2, (H/2)-p.y+2);
+                SDL_RenderDrawLine(ren, (W/2)+p.x-2, (H/2)-p.y+2, (W/2)+p.x-2, (H/2)-p.y-2);
+                SDL_RenderDrawLine(ren, (W/2)+p.x-2, (H/2)-p.y-2, (W/2)+p.x+2, (H/2)-p.y-2);
+                SDL_RenderDrawLine(ren, (W/2)+p.x+2, (H/2)-p.y-2, (W/2)+p.x+2, (H/2)-p.y+2);
+            }
+            for (int i = 0; i < Map.c.size(); i++) {
+                for (int j = 0; j < Map.c[i].cellSize(); j++) {
+                    line l = Map.c[i].getSegment(j);
+                    SDL_RenderDrawLine(ren, (W/2)+l.p1.x, (H/2)-l.p1.y, (W/2)+l.p2.x, (H/2)-l.p2.y);
+                }
+            }
+        } else {
+            SDL_RenderDrawLine(ren, (W/2)+4, (H/2), (W/2)-4, (H/2));
+            SDL_RenderDrawLine(ren, (W/2), (H/2)-4, (W/2), (H/2)+4);
+            drawroom(you.getpos(), you.getcell());
+        }
 
         //SDL_RenderPresent(ren);
 
