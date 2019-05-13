@@ -197,12 +197,12 @@ void drawroom(camera c, int cel) { // move this out of player functions to use d
 //if this becomes a problem, rename 'main' to 'WinMain' for windows version
 
 int main () {
-    Map.addPoint(-60, -60);
-    Map.addPoint(-80, 20);
+    Map.addPoint(-64, -64);
+    Map.addPoint(-80, 32);
     Map.addPoint(80, 40);
-    Map.addPoint(20, -80);
-    Map.addPoint(-120, -100);
-    Map.addPoint(-160, -20);
+    Map.addPoint(32, -80);
+    Map.addPoint(-128, -100);
+    Map.addPoint(-160, -32);
     Cell singlecell;//, secondcell;
     Cell * secondcell = new Cell;
     singlecell.addpoint(0, 1);
@@ -218,7 +218,8 @@ int main () {
     delete secondcell;
     Player you;
     bool keys[6] = {0,0,0,0,0,0};
-    bool editmode = false;
+    enum mode_ {play, edit, cube} mode = play;
+    int frame = 0;
 
     //init
     SDL_Init(SDL_INIT_VIDEO);
@@ -230,7 +231,13 @@ int main () {
         SDL_RenderClear(ren);
 
         SDL_SetRenderDrawColor(ren, 255, 255, 255, SDL_ALPHA_OPAQUE);
-        if (editmode) {
+        switch (mode) {
+            case play:
+            SDL_RenderDrawLine(ren, (W/2)+4, (H/2), (W/2)-4, (H/2));
+            SDL_RenderDrawLine(ren, (W/2), (H/2)-4, (W/2), (H/2)+4);
+            drawroom(you.getpos(), you.getcell());
+            break;
+            case edit:
             for (int i = 0; i < Map.points.size(); i++) {
                 xy p = Map.getPoint(i);
                 SDL_RenderDrawLine(ren, (W/2)+p.x+2, (H/2)-p.y+2, (W/2)+p.x-2, (H/2)-p.y+2);
@@ -244,10 +251,46 @@ int main () {
                     SDL_RenderDrawLine(ren, (W/2)+l.p1.x, (H/2)-l.p1.y, (W/2)+l.p2.x, (H/2)-l.p2.y);
                 }
             }
-        } else {
-            SDL_RenderDrawLine(ren, (W/2)+4, (H/2), (W/2)-4, (H/2));
-            SDL_RenderDrawLine(ren, (W/2), (H/2)-4, (W/2), (H/2)+4);
-            drawroom(you.getpos(), you.getcell());
+            break;
+            case cube: {
+            int FL = 512;
+            float pch = double(frame)/512;
+            float yaw = double(frame)/768;
+            float rol = double(frame)/1024;
+            float cube [8][3] = {{32, 32, 32}, {-32, 32, 32}, {32, -32, 32}, {-32, -32, 32}, {32, 32, -32}, {-32, 32, -32}, {32, -32, -32}, {-32, -32, -32}};
+            for (int i = 0; i < 8; i++) {
+                float t = cube[i][0]*cos(yaw)-cube[i][2]*sin(yaw);
+                cube[i][2] = cube[i][0]*sin(yaw)+cube[i][2]*cos(yaw);
+                cube[i][0] = t;
+            }
+            for (int i = 0; i < 8; i++) {
+                float t = cube[i][1]*cos(pch)-cube[i][2]*sin(pch);
+                cube[i][2] = cube[i][1]*sin(pch)+cube[i][2]*cos(pch);
+                cube[i][1] = t;
+            }
+            for (int i = 0; i < 8; i++) {
+                float t = cube[i][0]*cos(rol)-cube[i][1]*sin(rol);
+                cube[i][1] = cube[i][0]*sin(rol)+cube[i][1]*cos(rol);
+                cube[i][0] = t;
+            }
+            for (int i = 0; i < 8; i++) {
+                cube[i][2] = cube[i][2]-512;
+            }
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[0][2])*cube[0][0], (H/2)-(FL/cube[0][2])*cube[0][1], (W/2)+(FL/cube[1][2])*cube[1][0], (H/2)-(FL/cube[1][2])*cube[1][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[0][2])*cube[0][0], (H/2)-(FL/cube[0][2])*cube[0][1], (W/2)+(FL/cube[2][2])*cube[2][0], (H/2)-(FL/cube[2][2])*cube[2][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[0][2])*cube[0][0], (H/2)-(FL/cube[0][2])*cube[0][1], (W/2)+(FL/cube[4][2])*cube[4][0], (H/2)-(FL/cube[4][2])*cube[4][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[3][2])*cube[3][0], (H/2)-(FL/cube[3][2])*cube[3][1], (W/2)+(FL/cube[1][2])*cube[1][0], (H/2)-(FL/cube[1][2])*cube[1][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[3][2])*cube[3][0], (H/2)-(FL/cube[3][2])*cube[3][1], (W/2)+(FL/cube[2][2])*cube[2][0], (H/2)-(FL/cube[2][2])*cube[2][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[3][2])*cube[3][0], (H/2)-(FL/cube[3][2])*cube[3][1], (W/2)+(FL/cube[7][2])*cube[7][0], (H/2)-(FL/cube[7][2])*cube[7][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[5][2])*cube[5][0], (H/2)-(FL/cube[5][2])*cube[5][1], (W/2)+(FL/cube[1][2])*cube[1][0], (H/2)-(FL/cube[1][2])*cube[1][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[5][2])*cube[5][0], (H/2)-(FL/cube[5][2])*cube[5][1], (W/2)+(FL/cube[4][2])*cube[4][0], (H/2)-(FL/cube[4][2])*cube[4][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[5][2])*cube[5][0], (H/2)-(FL/cube[5][2])*cube[5][1], (W/2)+(FL/cube[7][2])*cube[7][0], (H/2)-(FL/cube[7][2])*cube[7][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[6][2])*cube[6][0], (H/2)-(FL/cube[6][2])*cube[6][1], (W/2)+(FL/cube[2][2])*cube[2][0], (H/2)-(FL/cube[2][2])*cube[2][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[6][2])*cube[6][0], (H/2)-(FL/cube[6][2])*cube[6][1], (W/2)+(FL/cube[4][2])*cube[4][0], (H/2)-(FL/cube[4][2])*cube[4][1]);
+            SDL_RenderDrawLine(ren, (W/2)+(FL/cube[6][2])*cube[6][0], (H/2)-(FL/cube[6][2])*cube[6][1], (W/2)+(FL/cube[7][2])*cube[7][0], (H/2)-(FL/cube[7][2])*cube[7][1]);
+            break;
+            }
+            default: break;
         }
 
         //SDL_RenderPresent(ren);
@@ -259,7 +302,9 @@ int main () {
                 case SDL_KEYUP:
                 case SDL_KEYDOWN:
                     switch (e.key.keysym.sym) {
-                        case SDLK_BACKSPACE: if (e.type == SDL_KEYDOWN) editmode = !editmode; break;
+                        case SDLK_z: if (e.type == SDL_KEYDOWN) mode = play; break;
+                        case SDLK_x: if (e.type == SDL_KEYDOWN) mode = edit; break;
+                        case SDLK_c: if (e.type == SDL_KEYDOWN) mode = cube; break;
                         case SDLK_RETURN:
                         case SDLK_ESCAPE: quit = (e.type == SDL_KEYDOWN); break;
                         case SDLK_w: keys[0] = (e.type == SDL_KEYDOWN); break;
@@ -272,13 +317,13 @@ int main () {
                 default: quit = (e.type == SDL_QUIT); break;
             }
         }
-        if (editmode) {
-
-        } else {
-            you.movement(keys[0]-keys[1], keys[3]-keys[2], keys[5]-keys[4]);
+        switch (mode) {
+            case play: you.movement(keys[0]-keys[1], keys[3]-keys[2], keys[5]-keys[4]); break;
+            default: break;
         }
         SDL_RenderPresent(ren);
         SDL_Delay(1);
+        frame++;
     }
     return 0;
 }
