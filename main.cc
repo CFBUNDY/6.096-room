@@ -5,6 +5,7 @@
 #include <SDL2/SDL.h>
 using namespace std;
 
+#define PI (acos(-1))
 #define W 640
 #define H 480
 SDL_Renderer * ren = NULL;
@@ -50,9 +51,23 @@ typedef struct _line {
     }
 } line;
 
+typedef struct _portal {
+    int target;
+    float da;
+    xy dxy;
+    _portal (int target, float dx, float dy, float da)
+    : target(target), dxy(dx,dy), da(da) {}
+} portal;
+
 typedef struct _camera {
     xy p;
     float dir;
+    _camera operator+(const portal& a) {
+        _camera nc;
+        nc.p = p+a.dxy;
+        nc.dir = dir+a.da;
+        return nc;
+    }
 } camera;
 
 xy pointFrom (camera view, xy point) {
@@ -77,13 +92,6 @@ xy closestPointOnSegment (line l, xy p) {
         closest = closest + l.p1;
     }
 }
-
-typedef struct _portal {
-    int target;
-    float dx, dy, da;
-    _portal (int target, float dx, float dy, float da)
-    : target(target), dx(dx), dy(dy), da(da) {}
-} portal;
 
 class Cell {
     vector<int> points;
@@ -150,8 +158,7 @@ class Player {
             if (p.target != -1) { // check if changing current cell
                 if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
                     curCell = p.target;
-                    pos.p.x += p.dx;
-                    pos.p.y += p.dy;
+                    pos.p = pos.p + p.dxy;
                     pos.dir += p.da;
                     break;
                 }
@@ -183,7 +190,7 @@ void drawroom(camera c, int cel) { // move this out of player functions to use d
         portal p = Map.c[cel].getPortal(j);
         if (pointOrientation(l.p1, l.p2, c.p) < 0) {
             if (p.target != -1) {
-                drawroom(c, p.target);
+                drawroom(c+p, p.target);
             } else {
                 l.p1 = pointFrom(c, l.p1);
                 l.p2 = pointFrom(c, l.p2);
@@ -197,27 +204,31 @@ void drawroom(camera c, int cel) { // move this out of player functions to use d
 //if this becomes a problem, rename 'main' to 'WinMain' for windows version
 
 int main () {
-    Map.addPoint(-64, -64);
+    Map.addPoint(-64, -32);
+    Map.addPoint(-64, 32);
+    Map.addPoint(64, 64);
+    Map.addPoint(64, -64);
+    Map.addPoint(-144, -64);
+    Map.addPoint(-144, 64);
     Map.addPoint(-80, 32);
-    Map.addPoint(80, 40);
-    Map.addPoint(32, -80);
-    Map.addPoint(-128, -100);
-    Map.addPoint(-160, -32);
+    Map.addPoint(-80, -32);
     Cell singlecell;//, secondcell;
     Cell * secondcell = new Cell;
-    singlecell.addpoint(0, 1);
+    singlecell.addpoint(0, 1, -16);
     singlecell.addpoint(1);
     singlecell.addpoint(2);
     singlecell.addpoint(3);
-    secondcell->addpoint(1, 0);
-    secondcell->addpoint(0);
+    //secondcell->addpoint(1, 0);
+    //secondcell->addpoint(0);
     secondcell->addpoint(4);
     secondcell->addpoint(5);
+    secondcell->addpoint(6, 0, 16);
+    secondcell->addpoint(7);
     Map.c.push_back(singlecell);
     Map.c.push_back(*secondcell);
     delete secondcell;
     Player you;
-    bool keys[6] = {0,0,0,0,0,0};
+    bool keys[128] = {0};
     enum mode_ {play, edit, cube} mode = play;
     int frame = 0;
 
@@ -301,24 +312,22 @@ int main () {
             switch (e.type) {
                 case SDL_KEYUP:
                 case SDL_KEYDOWN:
+                    for (int i = '0'; i < '{'; i++) {
+                        if (i == ':') i = 'a';
+                        if (e.key.keysym.sym == i) keys[i] = (e.type == SDL_KEYDOWN);
+                    }
                     switch (e.key.keysym.sym) {
-                        case SDLK_z: if (e.type == SDL_KEYDOWN) mode = play; break;
-                        case SDLK_x: if (e.type == SDL_KEYDOWN) mode = edit; break;
-                        case SDLK_c: if (e.type == SDL_KEYDOWN) mode = cube; break;
                         case SDLK_RETURN:
                         case SDLK_ESCAPE: quit = (e.type == SDL_KEYDOWN); break;
-                        case SDLK_w: keys[0] = (e.type == SDL_KEYDOWN); break;
-                        case SDLK_s: keys[1] = (e.type == SDL_KEYDOWN); break;
-                        case SDLK_a: keys[2] = (e.type == SDL_KEYDOWN); break;
-                        case SDLK_d: keys[3] = (e.type == SDL_KEYDOWN); break;
-                        case SDLK_q: keys[4] = (e.type == SDL_KEYDOWN); break;
-                        case SDLK_e: keys[5] = (e.type == SDL_KEYDOWN); break;
                     }; break;
                 default: quit = (e.type == SDL_QUIT); break;
             }
         }
+        if (keys['z']) mode = play;
+        if (keys['x']) mode = edit;
+        if (keys['c']) mode = cube;
         switch (mode) {
-            case play: you.movement(keys[0]-keys[1], keys[3]-keys[2], keys[5]-keys[4]); break;
+            case play: you.movement(keys['w']-keys['s'], keys['d']-keys['a'], keys['e']-keys['q']); break;
             default: break;
         }
         SDL_RenderPresent(ren);
