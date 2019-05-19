@@ -62,9 +62,13 @@ typedef struct _portal {
 typedef struct _camera {
     xy p;
     float dir;
-    _camera operator+(const portal& a) {
+    _camera displace (const xy& point, const portal& a) {
         _camera nc;
-        nc.p = p+a.dxy;
+        nc.p = p - point;
+        float tx = nc.p.x*cos(-a.da) - nc.p.y*sin(-a.da);
+        nc.p.y = nc.p.x*sin(-a.da) + nc.p.y*cos(-a.da);
+        nc.p.x = tx;
+        nc.p = nc.p + point + a.dxy;
         nc.dir = dir+a.da;
         return nc;
     }
@@ -158,8 +162,7 @@ class Player {
             if (p.target != -1) { // check if changing current cell
                 if (pointOrientation(l.p1, l.p2, pos.p) > 0) {
                     curCell = p.target;
-                    pos.p = pos.p + p.dxy;
-                    pos.dir += p.da;
+                    pos = pos.displace(l.p1, p);
                     break;
                 }
             } else {
@@ -190,7 +193,7 @@ void drawroom(camera c, int cel) { // move this out of player functions to use d
         portal p = Map.c[cel].getPortal(j);
         if (pointOrientation(l.p1, l.p2, c.p) < 0) {
             if (p.target != -1) {
-                drawroom(c+p, p.target);
+                drawroom(c.displace(l.p1, p), p.target);
             } else {
                 l.p1 = pointFrom(c, l.p1);
                 l.p2 = pointFrom(c, l.p2);
@@ -204,29 +207,45 @@ void drawroom(camera c, int cel) { // move this out of player functions to use d
 //if this becomes a problem, rename 'main' to 'WinMain' for windows version
 
 int main () {
-    Map.addPoint(-64, -32);
-    Map.addPoint(-64, 32);
-    Map.addPoint(64, 64);
-    Map.addPoint(64, -64);
-    Map.addPoint(-144, -64);
-    Map.addPoint(-144, 64);
-    Map.addPoint(-80, 32);
-    Map.addPoint(-80, -32);
-    Cell singlecell;//, secondcell;
-    Cell * secondcell = new Cell;
-    singlecell.addpoint(0, 1, -16);
-    singlecell.addpoint(1);
-    singlecell.addpoint(2);
-    singlecell.addpoint(3);
-    //secondcell->addpoint(1, 0);
-    //secondcell->addpoint(0);
-    secondcell->addpoint(4);
-    secondcell->addpoint(5);
-    secondcell->addpoint(6, 0, 16);
-    secondcell->addpoint(7);
-    Map.c.push_back(singlecell);
-    Map.c.push_back(*secondcell);
-    delete secondcell;
+    Map.addPoint(-40, 140);
+    Map.addPoint(20, 140);
+    Map.addPoint(-40, 100);
+    Map.addPoint(-20, 80);
+    Map.addPoint(20, 80);
+    Map.addPoint(-100, 40);
+    Map.addPoint(-60, 40);
+    Map.addPoint(-20, 40);
+    Map.addPoint(20, 40);
+    Map.addPoint(-40, 20);
+    Map.addPoint(-100, 0);
+    Map.addPoint(-60, -40);
+    Map.addPoint(-40, -40);
+    Map.addPoint(20, -40);
+    Cell * newcell = new Cell;
+    newcell->addpoint(7, 1, 0, 40);
+    newcell->addpoint(8);
+    newcell->addpoint(13);
+    newcell->addpoint(12, 2);
+    newcell->addpoint(9);
+    Map.c.push_back(*newcell);
+    delete newcell;
+    newcell = new Cell;
+    newcell->addpoint(0);
+    newcell->addpoint(1);
+    newcell->addpoint(4, 0, 0, -40);
+    newcell->addpoint(3);
+    newcell->addpoint(2, 2, -20, -60, -(PI/2));
+    Map.c.push_back(*newcell);
+    delete newcell;
+    newcell = new Cell;
+    newcell->addpoint(5, 1, 60, 100, (PI/2));
+    newcell->addpoint(6);
+    newcell->addpoint(9, 0);
+    newcell->addpoint(12);
+    newcell->addpoint(11);
+    newcell->addpoint(10);
+    Map.c.push_back(*newcell);
+    delete newcell;
     Player you;
     bool keys[128] = {0};
     enum mode_ {play, edit, cube} mode = play;
