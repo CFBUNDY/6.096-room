@@ -2,6 +2,8 @@
 #include <fstream>
 #include <math.h>
 #include <vector>
+#include <chrono>
+//chrono requires -std=c++11
 #include <SDL2/SDL.h>
 using namespace std;
 
@@ -9,6 +11,7 @@ using namespace std;
 #define W 640
 #define H 480
 SDL_Renderer * ren = NULL;
+int ms = 0;
 
 typedef struct _xy {
     float x;
@@ -31,9 +34,9 @@ float dotProduct (xy a, xy b) {
     return a.x*b.x+a.y*b.y;
 }
 
-// >0 : clockwise
+// <0 : clockwise
 // =0 : co-linear
-// <0 : counter-clockwise
+// >0 : counter-clockwise
 float pointOrientation (xy a, xy b, xy c) {
     return (b.x - a.x)*(c.y - b.y) - (c.x - b.x)*(b.y - a.y);
 }
@@ -49,6 +52,7 @@ typedef struct _line {
     float length() {
         return pointDistance(p1, p2);
     }
+    bool clipByLine(const _line clip);
 } line;
 
 typedef struct _portal {
@@ -74,6 +78,15 @@ typedef struct _camera {
     }
 } camera;
 
+xy lineIntersect (line l1, line l2) {
+    float dnm = (l1.p1.x-l1.p2.x)*(l2.p1.y-l2.p2.y)-(l1.p1.y-l1.p2.y)*(l2.p1.x-l2.p2.x);
+    xy res(0,0);
+    if (dnm == 0) return res;
+    res.x = ((((l1.p1.x*l1.p2.y)-(l1.p2.x*l1.p1.y))*(l2.p1.x-l2.p2.x))-((l1.p1.x-l1.p2.x)*((l2.p1.x*l2.p2.y)-(l2.p2.x*l2.p1.y))))/dnm;
+    res.y = ((((l1.p1.x*l1.p2.y)-(l1.p2.x*l1.p1.y))*(l2.p1.y-l2.p2.y))-((l1.p1.y-l1.p2.y)*((l2.p1.x*l2.p2.y)-(l2.p2.x*l2.p1.y))))/dnm;
+    return res;
+}
+
 xy pointFrom (camera view, xy point) {
     xy proj = point - view.p;
     float tx = proj.x*cos(view.dir) - proj.y*sin(view.dir);
@@ -95,6 +108,17 @@ xy closestPointOnSegment (line l, xy p) {
         closest.y *= scalar/length;
         closest = closest + l.p1;
     }
+}
+
+bool line::clipByLine (const line clip) {
+    if ((pointOrientation(clip.p1, clip.p2, p1) > 0) && (pointOrientation(clip.p1, clip.p2, p2) > 0)) return false;
+    if (pointOrientation(clip.p1, clip.p2, p1) > 0) {
+        p1 = lineIntersect(*this, clip);
+    }
+    if (pointOrientation(clip.p1, clip.p2, p2) > 0) {
+        p2 = lineIntersect(*this, clip);
+    }
+    return true;
 }
 
 class Cell {
@@ -135,7 +159,7 @@ line Cell::getSegment (int i) {
 
 class Player {
     camera pos;
-    float movespeed = 0.1, turnspeed = 0.005, width = 4;
+    float movespeed = 100, turnspeed = PI, width = 4;
     int curCell;
     public:
     Player(float x = 0, float y = 0, float dir = 0, int current = 0) {
@@ -152,9 +176,9 @@ class Player {
     }
     void movement(float frwd, float side, float turn) {
         //change position
-        pos.dir += turn*turnspeed;
-        pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*movespeed;
-        pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*movespeed;
+        pos.dir += turn*(float(ms)/1000)*turnspeed;
+        pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*(float(ms)/1000)*movespeed;
+        pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*(float(ms)/1000)*movespeed;
         //collision
         for (int i = 0; i < Map.c[curCell].cellSize(); i++) {
             line l = Map.c[curCell].getSegment(i);
@@ -187,19 +211,38 @@ class Player {
     }
 };
 
-void drawroom(camera c, int cel) { // move this out of player functions to use different cameras
+void drawroom(camera c, int cel, line * view = NULL) {
     for (int j = 0; j < Map.c[cel].cellSize(); j++) {
         line l = Map.c[cel].getSegment(j);
         portal p = Map.c[cel].getPortal(j);
         if (pointOrientation(l.p1, l.p2, c.p) < 0) {
+            if (view) {
+            /*SDL_SetRenderDrawColor(ren, 0, 255, 0, 255);
+            line help(view->p1, view->p2);
+            help.p1 = pointFrom(c, help.p1);
+            help.p2 = pointFrom(c, help.p2);
+            help.draw();
+            SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);*/
+                {line clip(c.p, view->p1);
+                if (not l.clipByLine(clip)) goto dont;}
+                {line clip(view->p2, c.p);
+                if (not l.clipByLine(clip)) goto dont;}
+            }
             if (p.target != -1) {
-                drawroom(c.displace(l.p1, p), p.target);
+                l.p1 = l.p1+p.dxy;
+                l.p2 = l.p2+p.dxy-l.p1;
+                float tx = l.p2.x*cos(-p.da) - l.p2.y*sin(-p.da);
+                l.p2.y = l.p2.x*sin(-p.da) + l.p2.y*cos(-p.da);
+                l.p2.x = tx;
+                l.p2 = l.p2+l.p1;
+                drawroom(c.displace(Map.c[cel].getSegment(j).p1, p), p.target, &l);
             } else {
                 l.p1 = pointFrom(c, l.p1);
                 l.p2 = pointFrom(c, l.p2);
                 l.draw();
             }
         }
+        dont: 0; //there's probably a better way to exit that, but for now,
     }
 }
 
@@ -255,6 +298,7 @@ int main () {
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Window * win = SDL_CreateWindow("Hello?", 160, 120, W, H, SDL_WINDOW_SHOWN);
     ren = SDL_CreateRenderer(win, -1, 0);
+    auto lastclock = chrono::steady_clock::now();
     bool quit = false;
     while (!quit) {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, SDL_ALPHA_OPAQUE);
@@ -324,6 +368,8 @@ int main () {
         }
 
         //SDL_RenderPresent(ren);
+        ms = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - lastclock).count();
+        lastclock = chrono::steady_clock::now();
 
         //keyboard
         SDL_Event e;
@@ -349,6 +395,7 @@ int main () {
             case play: you.movement(keys['w']-keys['s'], keys['d']-keys['a'], keys['e']-keys['q']); break;
             default: break;
         }
+
         SDL_RenderPresent(ren);
         SDL_Delay(1);
         frame++;
