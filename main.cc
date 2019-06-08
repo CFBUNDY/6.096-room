@@ -290,6 +290,7 @@ int main () {
     Map.c.push_back(*newcell);
     delete newcell;
     Player you;
+    xy ecam;
     bool keys[128] = {0};
     enum mode_ {play, edit, cube} mode = play;
     int frame = 0;
@@ -312,18 +313,41 @@ int main () {
             drawroom(you.getpos(), you.getcell());
             break;
             case edit:
-            for (int i = 0; i < Map.points.size(); i++) {
+            for (int i = 0; i < Map.points.size(); i++) { //points
                 xy p = Map.getPoint(i);
+                p = p - ecam;
                 SDL_RenderDrawLine(ren, (W/2)+p.x+2, (H/2)-p.y+2, (W/2)+p.x-2, (H/2)-p.y+2);
                 SDL_RenderDrawLine(ren, (W/2)+p.x-2, (H/2)-p.y+2, (W/2)+p.x-2, (H/2)-p.y-2);
                 SDL_RenderDrawLine(ren, (W/2)+p.x-2, (H/2)-p.y-2, (W/2)+p.x+2, (H/2)-p.y-2);
                 SDL_RenderDrawLine(ren, (W/2)+p.x+2, (H/2)-p.y-2, (W/2)+p.x+2, (H/2)-p.y+2);
             }
-            for (int i = 0; i < Map.c.size(); i++) {
+            for (int i = 0; i < Map.c.size(); i++) { //walls
                 for (int j = 0; j < Map.c[i].cellSize(); j++) {
                     line l = Map.c[i].getSegment(j);
-                    SDL_RenderDrawLine(ren, (W/2)+l.p1.x, (H/2)-l.p1.y, (W/2)+l.p2.x, (H/2)-l.p2.y);
+                    l.p1 = l.p1 - ecam;
+                    l.p2 = l.p2 - ecam;
+                    if (Map.c[i].getPortal(j).target != -1) {
+                        SDL_SetRenderDrawColor(ren, 0, 0, 255, SDL_ALPHA_OPAQUE);
+                        l.draw();
+                        l.p2 = l.p1 + Map.c[i].getPortal(j).dxy;
+                        SDL_SetRenderDrawColor(ren, 0, 255, 255, SDL_ALPHA_OPAQUE);
+                        l.draw();
+                    } else {
+                        l.draw();
+                    }
+                    SDL_SetRenderDrawColor(ren, 255, 255, 255, SDL_ALPHA_OPAQUE);
                 }
+            }
+            { //player
+                xy p (8*sin(you.getpos().dir),8*cos(you.getpos().dir));
+                line l (you.getpos().p, p); l.p2 = l.p2+l.p1;
+                l.p1 = l.p1 - ecam;
+                l.p2 = l.p2 - ecam;
+                SDL_SetRenderDrawColor(ren, 0, 255, 0, SDL_ALPHA_OPAQUE);
+                SDL_RenderDrawLine(ren, (W/2)+l.p1.x+1, (H/2)-l.p1.y+1, (W/2)+l.p1.x-1, (H/2)-l.p1.y-1);
+                SDL_RenderDrawLine(ren, (W/2)+l.p1.x-1, (H/2)-l.p1.y+1, (W/2)+l.p1.x+1, (H/2)-l.p1.y-1);
+                l.draw();
+                SDL_SetRenderDrawColor(ren, 255, 255, 255, SDL_ALPHA_OPAQUE);
             }
             break;
             case cube: {
@@ -389,10 +413,18 @@ int main () {
             }
         }
         if (keys['z']) mode = play;
-        if (keys['x']) mode = edit;
+        if (keys['x']) {
+            ecam = you.getpos().p;
+            mode = edit;
+        }
         if (keys['c']) mode = cube;
         switch (mode) {
             case play: you.movement(keys['w']-keys['s'], keys['d']-keys['a'], keys['e']-keys['q']); break;
+            case edit: {
+                xy cmov((float)ms*(keys['d']-keys['a'])/10, (float)ms*(keys['w']-keys['s'])/10);
+                ecam = ecam + cmov;
+                break;
+            }
             default: break;
         }
 
