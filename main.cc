@@ -11,7 +11,7 @@ using namespace std;
 #define W 640
 #define H 480
 SDL_Renderer * ren = NULL;
-int ms = 0;
+int mcs = 0;
 
 typedef struct _xy {
     float x;
@@ -176,9 +176,9 @@ class Player {
     }
     void movement(float frwd, float side, float turn) {
         //change position
-        pos.dir += turn*(float(ms)/1000)*turnspeed;
-        pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*(float(ms)/1000)*movespeed;
-        pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*(float(ms)/1000)*movespeed;
+        pos.dir += turn*(float(mcs)/1000000)*turnspeed;
+        pos.p.x += (frwd*sin(pos.dir)+side*cos(pos.dir))*(float(mcs)/1000000)*movespeed;
+        pos.p.y += (frwd*cos(pos.dir)-side*sin(pos.dir))*(float(mcs)/1000000)*movespeed;
         //collision
         for (int i = 0; i < Map.c[curCell].cellSize(); i++) {
             line l = Map.c[curCell].getSegment(i);
@@ -293,8 +293,8 @@ int main () {
     xy ecam;
     bool keys[128] = {0};
     enum mode_ {play, edit, cube} mode = play;
-    int frame = 0;
-
+    float timer = 0;
+    
     //init
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Window * win = SDL_CreateWindow("Hello?", 160, 120, W, H, SDL_WINDOW_SHOWN);
@@ -352,9 +352,9 @@ int main () {
             break;
             case cube: {
             int FL = 512;
-            float pch = double(frame)/512;
-            float yaw = double(frame)/768;
-            float rol = double(frame)/1024;
+            float pch = double(timer)*2;
+            float yaw = double(timer)*1.5;
+            float rol = double(timer);
             float cube [8][3] = {{32, 32, 32}, {-32, 32, 32}, {32, -32, 32}, {-32, -32, 32}, {32, 32, -32}, {-32, 32, -32}, {32, -32, -32}, {-32, -32, -32}};
             for (int i = 0; i < 8; i++) {
                 float t = cube[i][0]*cos(yaw)-cube[i][2]*sin(yaw);
@@ -392,7 +392,7 @@ int main () {
         }
 
         //SDL_RenderPresent(ren);
-        ms = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - lastclock).count();
+        mcs = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - lastclock).count();
         lastclock = chrono::steady_clock::now();
 
         //keyboard
@@ -421,7 +421,7 @@ int main () {
         switch (mode) {
             case play: you.movement(keys['w']-keys['s'], keys['d']-keys['a'], keys['e']-keys['q']); break;
             case edit: {
-                xy cmov((float)ms*(keys['d']-keys['a'])/10, (float)ms*(keys['w']-keys['s'])/10);
+                xy cmov((float)mcs*(keys['d']-keys['a'])/10000, (float)mcs*(keys['w']-keys['s'])/10000);
                 ecam = ecam + cmov;
                 break;
             }
@@ -429,8 +429,8 @@ int main () {
         }
 
         SDL_RenderPresent(ren);
-        SDL_Delay(1);
-        frame++;
+        //SDL_Delay(1);
+        timer += (float)mcs/1000000;
     }
     return 0;
 }
